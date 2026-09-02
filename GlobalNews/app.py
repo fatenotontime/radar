@@ -14,10 +14,11 @@ import json
 import time
 import threading
 import logging
-import importlib.util
 from datetime import datetime, timedelta
 
 from flask import Flask, jsonify, send_from_directory
+
+from crawler import run_crawl
 
 # schedule 库可选（缺库时禁用定时，仍可手动爬取）
 try:
@@ -28,18 +29,6 @@ except ImportError:
     HAS_SCHEDULE = False
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-# ---------------------------------------------------------------------------
-# 加载旧版 crawler.py 的 run_crawl
-# 注意: 包目录 crawler/（Task 7 前为空壳）会遮蔽同名的 crawler.py 文件，
-# `from crawler import run_crawl` 会解析到包而失败，故用 importlib 从文件显式加载。
-# ---------------------------------------------------------------------------
-_spec = importlib.util.spec_from_file_location(
-    "legacy_crawler", os.path.join(BASE_DIR, "crawler.py")
-)
-_legacy = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(_legacy)
-run_crawl = _legacy.run_crawl
 
 app = Flask(__name__)
 
