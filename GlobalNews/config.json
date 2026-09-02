@@ -1,0 +1,7 @@
+{
+  "last_cleanup": "2026-06",
+  "proxy": "http://127.0.0.1:7993",
+  "schedule": { "weekday": "saturday", "hour": 9 },
+  "detail_crawl": { "enabled": true, "top_n": 10, "depth": 1 },
+  "attachment": { "enabled": true, "max_mb": 20 }
+}
