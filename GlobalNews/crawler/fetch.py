@@ -67,7 +67,9 @@ def build_session(needs_proxy: bool, proxy: str) -> requests.Session:
     构造带统一 UA 的 RSS 抓取会话。
 
     needs_proxy 且配置了代理 → http/https 均走该代理；
-    否则 proxies 置空且 trust_env=False，防止系统代理劫持国内流量。
+    否则 proxies 置空。两种情况均 trust_env=False：
+    代理会话防止系统环境变量代理覆盖 config 代理，
+    直连会话防止系统代理劫持国内流量。
     """
     s = requests.Session()
     s.headers.update({
@@ -81,7 +83,7 @@ def build_session(needs_proxy: bool, proxy: str) -> requests.Session:
         s.proxies = {"http": proxy, "https": proxy}
     else:
         s.proxies = {}
-        s.trust_env = False
+    s.trust_env = False
     return s
 
 
