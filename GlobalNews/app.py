@@ -158,6 +158,12 @@ def crawl_status():
     })
 
 
+@app.route("/attachments/<path:subpath>")
+def attachments(subpath):
+    """附件下载：attachments/2026-09/xxx.pdf → /attachments/2026-09/xxx.pdf"""
+    return send_from_directory(os.path.join(BASE_DIR, "attachments"), subpath)
+
+
 if __name__ == "__main__":
     # Windows 控制台默认 gbk，logging 输出时会乱码；强制 stdout/stderr 用 utf-8
     for _fh in (sys.stdout, sys.stderr):
