@@ -3,7 +3,7 @@
 import os, re, time, hashlib, logging
 from datetime import datetime, timedelta
 from typing import Dict, List
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urljoin
 
 import trafilatura
 
@@ -69,6 +69,15 @@ def select_for_detail(entries: List[Dict], top_n: int) -> List[Dict]:
 
 
 # ===================================================================
+# PDF 链接提取：href 里以 .pdf 结尾（或含 .pdf 查询串）的地址，
+# 相对路径按页面 URL 解析为绝对地址，去重排序
+# ===================================================================
+def extract_pdf_links(html: str, base_url: str) -> List[str]:
+    hrefs = re.findall(r'href=["\']([^"\']+\.pdf[^"\']*)["\']', html, re.IGNORECASE)
+    return sorted(set(urljoin(base_url, h) for h in hrefs))
+
+
+# ===================================================================
 # 单条详情抓取（带缓存）
 # ===================================================================
 def fetch_detail(entry: Dict, proxy: str) -> Dict:
@@ -101,10 +110,8 @@ def fetch_detail(entry: Dict, proxy: str) -> Dict:
     m = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', html)
     first_img = m.group(1) if m else ""
 
-    # PDF 链接：href 里以 .pdf 结尾（或含 .pdf 查询串）的地址，去重排序
-    pdf_links = sorted(
-        set(re.findall(r'href=["\']([^"\']+\.pdf[^"\']*)["\']', html, re.IGNORECASE))
-    )
+    # PDF 链接：href 里以 .pdf 结尾（或含 .pdf 查询串）的地址，相对路径解析为绝对地址
+    pdf_links = extract_pdf_links(html, link)
 
     # arXiv 特判：abs 页对应的 PDF 就是 /pdf/ 同编号页
     if "arxiv.org/abs/" in link:
