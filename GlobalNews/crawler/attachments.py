@@ -37,10 +37,12 @@ def _filename_from_url(url: str) -> str:
     return "file.pdf"
 
 
-def download_all(entry: Dict, proxy: str = None) -> List[Dict]:
+def download_all(entry: Dict, proxy: str = None, seen_urls: set = None) -> List[Dict]:
     """下载 entry["detail"]["pdf_links"] 中的附件，按月归档到 attachments/YYYY-MM/。
 
     - proxy 为 None 时读 config.json 的 proxy；显式传 "" 可强制直连（测试/冒烟用）
+    - seen_urls：单次运行内已下载过的 URL 集合，跨条目去重
+      （防止 Guardian 等站点页脚全站 PDF 在每个详情条目重复下载）
     - attachment.enabled 为 False 或无链接时返回 []
     - HEAD 预检 Content-Length，超过 attachment.max_mb（默认 20）跳过不下载
     - 单条最多 _MAX_PER_ENTRY 个附件；单附件失败仅告警，不影响其余
@@ -55,6 +57,9 @@ def download_all(entry: Dict, proxy: str = None) -> List[Dict]:
     if not links:
         return []
 
+    if seen_urls is None:
+        seen_urls = set()
+
     if proxy is None:
         proxy = cfg.get("proxy", "")
     max_bytes = int(att_cfg.get("max_mb", 20)) * 1024 * 1024
@@ -64,6 +69,8 @@ def download_all(entry: Dict, proxy: str = None) -> List[Dict]:
     session = build_session(_source_needs_proxy(entry.get("source", "")), proxy)
     try:
         for url in links[:_MAX_PER_ENTRY]:
+            if url in seen_urls:
+                continue   # 本次运行已下载过（如 Guardian 页脚全站 PDF）
             try:
                 # HEAD 预检大小：无 Content-Length 头视为 0（不跳过）
                 h = session.head(url, timeout=15, allow_redirects=True)
@@ -83,6 +90,7 @@ def download_all(entry: Dict, proxy: str = None) -> List[Dict]:
                 with open(os.path.join(month_dir, fname), "wb") as f:
                     f.write(r.content)
                 saved.append({"filename": fname, "size": len(r.content), "url": url})
+                seen_urls.add(url)
                 logger.info("附件已归档: %s (%d bytes)", fname, len(r.content))
                 time.sleep(1)  # 限速
             except Exception as e:

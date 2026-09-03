@@ -144,13 +144,15 @@ def run_crawl() -> None:
 
     # [3/5] 附件归档 — 必须在 merge_data 之前：
     #       merge_data 按 URL 去重会跳过旧条目，附件要先下好才不会丢
+    #       seen_urls 跨条目去重，避免 Guardian 页脚全站 PDF 被重复下载
     logger.info("[3/5] 附件归档...")
     cfg = fetch.load_config()
     att_enabled = bool((cfg.get("attachment") or {}).get("enabled", True))
     proxy = cfg.get("proxy")
+    seen_urls: set = set()
     for entry in entries:
         if att_enabled and entry.get("detail"):
-            entry["attachments"] = attachments.download_all(entry, proxy)
+            entry["attachments"] = attachments.download_all(entry, proxy, seen_urls)
         else:
             entry["attachments"] = []   # 保证字段存在
 
