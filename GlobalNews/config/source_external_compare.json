@@ -1,0 +1,11 @@
+[
+  {"source_id":"arxiv_api","name":"arXiv API","url":"https://export.arxiv.org/api/query?search_query=cat:physics.chem-ph&start=0&max_results=1","role":"research_discovery"},
+  {"source_id":"acs_jacs","name":"ACS JACS","url":"https://pubs.acs.org/action/showFeed?type=etoc&feed=rss&jc=jacsat","role":"chemistry_publisher_discovery"},
+  {"source_id":"rsc_chemistry","name":"RSC Chemistry","url":"https://pubs.rsc.org/en/journals/journalissues/sc","role":"chemistry_publisher_discovery"},
+  {"source_id":"anthropic","name":"Anthropic","url":"https://www.anthropic.com/news","role":"ai_company_primary"},
+  {"source_id":"google_deepmind","name":"Google DeepMind","url":"https://deepmind.google/discover/blog/","role":"ai_company_primary"},
+  {"source_id":"nvidia","name":"NVIDIA","url":"https://blogs.nvidia.com/feed/","role":"ai_company_primary"},
+  {"source_id":"reuters_world","name":"Reuters World","url":"https://www.reuters.com/world/","role":"world_context_secondary"},
+  {"source_id":"ap_world","name":"Associated Press World","url":"https://apnews.com/world-news","role":"world_context_secondary"},
+  {"source_id":"bbc_world","name":"BBC World","url":"https://feeds.bbci.co.uk/news/world/rss.xml","role":"world_context_secondary"}
+]

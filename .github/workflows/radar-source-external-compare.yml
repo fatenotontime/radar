@@ -1,0 +1,61 @@
+name: Radar source external comparison
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * 2"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: radar-source-external-compare
+  cancel-in-progress: false
+
+jobs:
+  probe-nine-anomalies:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: GlobalNews
+
+    steps:
+      - name: Check out candidate definitions
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Validate external comparison catalog
+        run: >-
+          python -c "import json,pathlib;
+          p=pathlib.Path('config/source_external_compare.json');
+          items=json.loads(p.read_text(encoding='utf-8'));
+          assert len(items)==9, f'expected 9 sources, got {len(items)}';
+          assert len({item['source_id'] for item in items})==9"
+
+      - name: Probe from GitHub-hosted Ubuntu
+        id: probe
+        shell: bash
+        run: |
+          output_dir="${RUNNER_TEMP}/radar-external-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          python scripts/run_source_probe.py \
+            --catalog config/source_external_compare.json \
+            --output-dir "${output_dir}" \
+            --attempts 2 \
+            --timeout 15 \
+            --delay 1
+          echo "output_dir=${output_dir}" >> "${GITHUB_OUTPUT}"
+          cat "${output_dir}/summary.md" >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload complete probe evidence
+        if: always() && steps.probe.outputs.output_dir != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: radar-source-external-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ steps.probe.outputs.output_dir }}
+          if-no-files-found: error
+          retention-days: 14
