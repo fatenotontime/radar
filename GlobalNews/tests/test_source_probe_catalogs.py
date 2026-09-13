@@ -14,6 +14,15 @@ EXPECTED_EXTERNAL_IDS = {
     "ap_world",
     "bbc_world",
 }
+EXPECTED_FIXED_CANDIDATE_IDS = {
+    "unpaywall",
+    "opencitations_coci",
+    "opencitations_meta",
+    "chebi",
+    "ase",
+    "molpro",
+    "minimax",
+}
 
 
 def _load(name: str) -> list[dict[str, str]]:
@@ -40,3 +49,16 @@ def test_external_comparison_is_exactly_the_nine_ecs_anomalies_and_matches_maste
     assert {item["source_id"] for item in external} == EXPECTED_EXTERNAL_IDS
     assert len(external) == 9
     assert all(candidates[item["source_id"]] == item for item in external)
+
+
+def test_candidate_fix_validation_is_exactly_the_seven_corrected_entries():
+    candidates = {
+        item["source_id"]: item for item in _load("source_probe_candidates.json")
+    }
+    fixed = _load("source_candidate_fix_validation.json")
+
+    assert {item["source_id"] for item in fixed} == EXPECTED_FIXED_CANDIDATE_IDS
+    assert len(fixed) == 7
+    assert all(candidates[item["source_id"]] == item for item in fixed)
+    assert candidates["unpaywall"]["probe_identity"] == "official_documentation_example"
+    assert candidates["unpaywall"]["activation_requires"] == "real_contact_email"

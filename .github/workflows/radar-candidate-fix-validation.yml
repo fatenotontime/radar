@@ -1,0 +1,59 @@
+name: Radar corrected candidate validation
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: radar-candidate-fix-validation
+  cancel-in-progress: false
+
+jobs:
+  probe-seven-corrections:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: GlobalNews
+
+    steps:
+      - name: Check out corrected candidates
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Validate corrected candidate catalog
+        run: >-
+          python -c "import json,pathlib;
+          p=pathlib.Path('config/source_candidate_fix_validation.json');
+          items=json.loads(p.read_text(encoding='utf-8'));
+          assert len(items)==7, f'expected 7 sources, got {len(items)}';
+          assert len({item['source_id'] for item in items})==7"
+
+      - name: Probe corrected candidates
+        id: probe
+        shell: bash
+        run: |
+          output_dir="${RUNNER_TEMP}/radar-candidate-fixes-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          python scripts/run_source_probe.py \
+            --catalog config/source_candidate_fix_validation.json \
+            --output-dir "${output_dir}" \
+            --attempts 2 \
+            --timeout 15 \
+            --delay 1
+          echo "output_dir=${output_dir}" >> "${GITHUB_OUTPUT}"
+          cat "${output_dir}/summary.md" >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload complete probe evidence
+        if: always() && steps.probe.outputs.output_dir != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: radar-candidate-fixes-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ steps.probe.outputs.output_dir }}
+          if-no-files-found: error
+          retention-days: 14

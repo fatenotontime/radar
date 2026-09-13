@@ -1,0 +1,9 @@
+[
+  {"source_id":"unpaywall","name":"Unpaywall","url":"https://api.unpaywall.org/v2/10.1038/nature12373?email=unpaywall_01@example.com","role":"oa_metadata_requires_identity","probe_identity":"official_documentation_example","activation_requires":"real_contact_email"},
+  {"source_id":"opencitations_coci","name":"OpenCitations Index","url":"https://api.opencitations.net/index/v1/citations/10.1038/nature12373","role":"research_metadata"},
+  {"source_id":"opencitations_meta","name":"OpenCitations Meta","url":"https://api.opencitations.net/meta/v1/metadata/doi:10.1038/nature12373","role":"research_metadata"},
+  {"source_id":"chebi","name":"ChEBI","url":"https://www.ebi.ac.uk/chebi/backend/api/public/compound/15440/","role":"chemistry_database"},
+  {"source_id":"ase","name":"Atomic Simulation Environment Releases","url":"https://gitlab.com/api/v4/projects/ase%2Fase/releases?per_page=1","role":"research_software_release"},
+  {"source_id":"molpro","name":"Molpro News","url":"https://www.molpro.net/","role":"research_software_release"},
+  {"source_id":"minimax","name":"MiniMax Model Release Notes","url":"https://platform.minimax.io/docs/release-notes/models","role":"ai_company_primary"}
+]
