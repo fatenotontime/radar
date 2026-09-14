@@ -3,6 +3,8 @@ from pathlib import Path
 
 
 CONFIG_DIR = Path(__file__).resolve().parent.parent / "config"
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+WORKFLOW_PATH = REPOSITORY_ROOT / ".github" / "workflows" / "radar-sa-source-assurance.yml"
 EXPECTED_S_SOURCE_IDS = {
     "arxiv_api",
     "acs_jctc",
@@ -29,6 +31,69 @@ EXPECTED_A_SOURCE_IDS = {
 
 def _load(name: str) -> dict[str, object]:
     return json.loads((CONFIG_DIR / name).read_text(encoding="utf-8"))
+
+
+def test_source_assurance_workflow_exists():
+    assert WORKFLOW_PATH.is_file()
+
+
+def test_source_assurance_workflow_has_safe_scoped_triggers():
+    workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
+
+    assert "workflow_dispatch:" in workflow
+    assert 'cron: "17 3 * * 2"' in workflow
+    assert "pull_request:" in workflow
+    for path in (
+        ".github/workflows/radar-sa-source-assurance.yml",
+        "GlobalNews/config/source_assurance_priorities.json",
+        "GlobalNews/config/source_sa_external_compare.json",
+        "GlobalNews/config/source_probe_candidates.json",
+        "GlobalNews/scripts/probe_sources.py",
+        "GlobalNews/scripts/run_source_probe.py",
+        "GlobalNews/tests/test_source_assurance_catalog.py",
+        "GlobalNews/tests/test_source_probe_catalogs.py",
+        "GlobalNews/tests/test_probe_sources.py",
+    ):
+        assert f'      - "{path}"' in workflow
+    assert "permissions:\n  contents: read" in workflow
+    assert "concurrency:" in workflow
+    assert "cancel-in-progress: false" in workflow
+
+
+def test_source_assurance_workflow_validates_catalogs_before_probing():
+    workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
+
+    assert "uses: actions/checkout@v7" in workflow
+    assert "uses: actions/setup-python@v7" in workflow
+    assert 'python-version: "3.13"' in workflow
+    assert 'python -m pip install "pytest>=7.4,<9"' in workflow
+
+    catalog_test = (
+        "python -m pytest tests/test_source_assurance_catalog.py "
+        "tests/test_source_probe_catalogs.py -q"
+    )
+    probe_command = "python scripts/run_source_probe.py"
+    assert catalog_test in workflow
+    assert workflow.index(catalog_test) < workflow.index(probe_command)
+
+
+def test_source_assurance_workflow_preserves_complete_probe_bundle():
+    workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
+
+    assert "--catalog config/source_sa_external_compare.json" in workflow
+    assert '--output-dir "${PROBE_OUTPUT_DIR}"' in workflow
+    assert "--attempts 2" in workflow
+    assert "--timeout 20" in workflow
+    assert "--delay 1" in workflow
+    assert (
+        "PROBE_OUTPUT_DIR: ${{ runner.temp }}/radar-sa-source-assurance-"
+        "${{ github.run_id }}-${{ github.run_attempt }}"
+    ) in workflow
+    assert "if: always()" in workflow
+    assert "uses: actions/upload-artifact@v7" in workflow
+    assert "path: ${{ env.PROBE_OUTPUT_DIR }}" in workflow
+    assert "if-no-files-found: error" in workflow
+    assert "retention-days: 30" in workflow
 
 
 def test_source_assurance_manifest_declares_version_and_default_priority():
