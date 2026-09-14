@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "default_priority": "B_or_C",
+  "priorities": {
+    "S": [
+      "arxiv_api",
+      "acs_jctc",
+      "rsc_pccp",
+      "huggingface",
+      "anthropic",
+      "openai",
+      "nvidia"
+    ],
+    "A": [
+      "chemrxiv",
+      "acs_catalysis",
+      "acs_chem_mater",
+      "aip_jcp",
+      "materials_project",
+      "allenai",
+      "meta_ai",
+      "mistral_ai",
+      "gpaw",
+      "materials_cloud",
+      "ase"
+    ]
+  }
+}
