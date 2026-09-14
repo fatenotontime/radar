@@ -68,3 +68,18 @@ def test_all_assurance_sources_exist_in_master_candidate_catalog():
     master_source_ids = {item["source_id"] for item in master_candidates}
 
     assert prioritized_sources <= master_source_ids
+
+
+def test_external_comparison_catalog_exactly_matches_s_and_a_master_candidates():
+    priorities = _load("source_assurance_priorities.json")["priorities"]
+    prioritized_source_ids = set(priorities["S"]) | set(priorities["A"])
+    master_candidates = _load("source_probe_candidates.json")
+    external_candidates = _load("source_sa_external_compare.json")
+
+    assert len(external_candidates) == 18
+    assert {item["source_id"] for item in external_candidates} == prioritized_source_ids
+
+    master_by_source_id = {item["source_id"]: item for item in master_candidates}
+    assert external_candidates == [
+        master_by_source_id[item["source_id"]] for item in external_candidates
+    ]
