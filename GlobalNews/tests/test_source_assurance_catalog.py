@@ -140,8 +140,18 @@ def test_source_assurance_workflow_preserves_honest_evidence_on_failure():
     finalize = steps_by_name["Finalize workflow evidence"]
     upload = steps_by_name["Upload source assurance evidence"]
 
-    assert steps.index(prepare) < steps.index(catalog_test) < steps.index(probe)
+    assert steps[0] is prepare
+    for later_step_name in (
+        "Check out source assurance definitions",
+        "Set up Python",
+        "Install test dependencies",
+        "Validate catalog contracts",
+        "Probe S and A sources",
+    ):
+        assert steps.index(prepare) < steps.index(steps_by_name[later_step_name])
+    assert steps.index(catalog_test) < steps.index(probe)
     assert prepare["id"] == "prepare"
+    assert prepare["working-directory"] == "${{ runner.temp }}"
     assert (
         'evidence_root="${RUNNER_TEMP}/radar-sa-source-evidence-'
         '${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"'

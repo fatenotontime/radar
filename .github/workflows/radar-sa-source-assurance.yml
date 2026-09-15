@@ -34,18 +34,11 @@ jobs:
         working-directory: GlobalNews
 
     steps:
-      - name: Check out source assurance definitions
-        uses: actions/checkout@v7
-
-      - name: Set up Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: "3.13"
-
       - name: Prepare workflow evidence metadata
         if: github.event_name != 'pull_request'
         id: prepare
         shell: bash
+        working-directory: ${{ runner.temp }}
         env:
           RUN_ID: ${{ github.run_id }}
           RUN_ATTEMPT: ${{ github.run_attempt }}
@@ -57,26 +50,25 @@ jobs:
           echo "EVIDENCE_ROOT=${evidence_root}" >> "${GITHUB_ENV}"
           echo "evidence_root=${evidence_root}" >> "${GITHUB_OUTPUT}"
           mkdir -p "${EVIDENCE_ROOT}"
-          python - <<'PY'
-          import json
-          import os
-          from pathlib import Path
+          {
+            printf '%s\n' '{'
+            printf '%s\n' '  "schema_version": 1,'
+            printf '%s\n' '  "workflow": "radar-sa-source-assurance",'
+            printf '  "run_id": "%s",\n' "${RUN_ID}"
+            printf '  "run_attempt": "%s",\n' "${RUN_ATTEMPT}"
+            printf '  "event_name": "%s",\n' "${EVENT_NAME}"
+            printf '  "commit": "%s",\n' "${SHA}"
+            printf '%s\n' '  "catalog": "config/source_sa_external_compare.json"'
+            printf '%s\n' '}'
+          } > "${EVIDENCE_ROOT}/workflow_metadata.json"
 
-          metadata = {
-              "schema_version": 1,
-              "workflow": "radar-sa-source-assurance",
-              "run_id": os.environ["RUN_ID"],
-              "run_attempt": os.environ["RUN_ATTEMPT"],
-              "event_name": os.environ["EVENT_NAME"],
-              "commit": os.environ["SHA"],
-              "catalog": "config/source_sa_external_compare.json",
-          }
-          destination = Path(os.environ["EVIDENCE_ROOT"]) / "workflow_metadata.json"
-          destination.write_text(
-              json.dumps(metadata, indent=2, sort_keys=True) + "\n",
-              encoding="utf-8",
-          )
-          PY
+      - name: Check out source assurance definitions
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
 
       - name: Install test dependencies
         run: python -m pip install "pytest>=7.4,<9" "PyYAML>=6,<7"
