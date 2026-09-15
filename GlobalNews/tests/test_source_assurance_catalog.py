@@ -178,7 +178,9 @@ def test_source_assurance_workflow_preserves_honest_evidence_on_failure():
 
     gated_always = "always() && github.event_name != 'pull_request'"
     assert finalize["if"] == gated_always
+    assert finalize["working-directory"] == "${{ runner.temp }}"
     assert finalize["env"] == {"PROBE_OUTCOME": "${{ steps.probe.outcome }}"}
+    assert "python3 - <<'PY'" in finalize["run"]
     assert "workflow_result.json" in finalize["run"]
     assert '"probe_outcome"' in finalize["run"]
     assert '"probe_complete"' in finalize["run"]
