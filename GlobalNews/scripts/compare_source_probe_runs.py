@@ -6,8 +6,10 @@ from __future__ import annotations
 import argparse
 from collections import Counter
 import json
+import os
 from pathlib import Path
 import sys
+import tempfile
 from typing import Any
 
 
@@ -87,6 +89,33 @@ def compare_probe_runs(primary_path: Path, fallback_path: Path) -> dict[str, Any
     }
 
 
+def _write_json_exclusive_atomic(path: Path, value: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            newline="\n",
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            temporary_path = Path(handle.name)
+            json.dump(value, handle, ensure_ascii=False, indent=2, sort_keys=True)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.link(temporary_path, path)
+    finally:
+        if temporary_path is not None:
+            try:
+                temporary_path.unlink()
+            except FileNotFoundError:
+                pass
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--primary-results", required=True, type=Path)
@@ -94,13 +123,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args(argv)
 
-    comparison = compare_probe_runs(args.primary_results, args.fallback_results)
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(
-        json.dumps(comparison, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-        newline="\n",
-    )
+    primary_path = args.primary_results.resolve()
+    fallback_path = args.fallback_results.resolve()
+    output_path = args.output.resolve()
+    if output_path in {primary_path, fallback_path}:
+        raise ValueError("output must differ from probe inputs")
+
+    comparison = compare_probe_runs(primary_path, fallback_path)
+    _write_json_exclusive_atomic(output_path, comparison)
     return 0
 
 

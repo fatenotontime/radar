@@ -5,7 +5,8 @@ import sys
 
 import pytest
 
-from scripts.compare_source_probe_runs import compare_probe_runs
+from scripts import compare_source_probe_runs as comparator
+from scripts.compare_source_probe_runs import compare_probe_runs, main
 
 
 def _write_results(path: Path, records: list[dict]) -> None:
@@ -182,3 +183,136 @@ def test_cli_writes_sorted_utf8_json_with_trailing_newline(tmp_path: Path):
         "a-source",
         "z-source",
     ]
+
+
+@pytest.mark.parametrize("output_side", ["primary", "fallback"])
+@pytest.mark.parametrize("path_form", ["exact", "normalized_alias"])
+def test_cli_rejects_an_input_path_as_output_without_changing_it(
+    tmp_path: Path, output_side: str, path_form: str
+):
+    primary = tmp_path / "primary.jsonl"
+    fallback = tmp_path / "fallback.jsonl"
+    records = [_record("shared", final_result="success", http_status=200)]
+    _write_results(primary, records)
+    _write_results(fallback, records)
+    input_path = primary if output_side == "primary" else fallback
+    before = input_path.read_bytes()
+    output = input_path
+    if path_form == "normalized_alias":
+        alias_parent = tmp_path / "alias-parent"
+        alias_parent.mkdir()
+        output = alias_parent / ".." / input_path.name
+
+    with pytest.raises(ValueError, match="output must differ from probe inputs"):
+        main(
+            [
+                "--primary-results",
+                str(primary),
+                "--fallback-results",
+                str(fallback),
+                "--output",
+                str(output),
+            ]
+        )
+
+    assert input_path.read_bytes() == before
+
+
+def test_cli_does_not_overwrite_an_existing_output(tmp_path: Path):
+    primary = tmp_path / "primary.jsonl"
+    fallback = tmp_path / "fallback.jsonl"
+    output = tmp_path / "comparison.json"
+    records = [_record("shared", final_result="success", http_status=200)]
+    _write_results(primary, records)
+    _write_results(fallback, records)
+    old_output = b"existing immutable output\n"
+    output.write_bytes(old_output)
+    expected_paths = {primary, fallback, output}
+
+    with pytest.raises(FileExistsError):
+        main(
+            [
+                "--primary-results",
+                str(primary),
+                "--fallback-results",
+                str(fallback),
+                "--output",
+                str(output),
+            ]
+        )
+
+    assert output.read_bytes() == old_output
+    assert set(tmp_path.iterdir()) == expected_paths
+
+
+def test_cli_cleans_temporary_file_when_atomic_publish_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    primary = tmp_path / "primary.jsonl"
+    fallback = tmp_path / "fallback.jsonl"
+    output = tmp_path / "comparison.json"
+    records = [_record("shared", final_result="success", http_status=200)]
+    _write_results(primary, records)
+    _write_results(fallback, records)
+    primary_before = primary.read_bytes()
+    fallback_before = fallback.read_bytes()
+
+    def fail_publish(source: object, destination: object) -> None:
+        raise OSError("simulated publish failure")
+
+    monkeypatch.setattr(comparator.os, "link", fail_publish)
+
+    with pytest.raises(OSError, match="simulated publish failure"):
+        main(
+            [
+                "--primary-results",
+                str(primary),
+                "--fallback-results",
+                str(fallback),
+                "--output",
+                str(output),
+            ]
+        )
+
+    assert primary.read_bytes() == primary_before
+    assert fallback.read_bytes() == fallback_before
+    assert not output.exists()
+    assert set(tmp_path.iterdir()) == {primary, fallback}
+
+
+def test_cli_cleans_temporary_file_when_writing_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    primary = tmp_path / "primary.jsonl"
+    fallback = tmp_path / "fallback.jsonl"
+    output = tmp_path / "comparison.json"
+    records = [_record("shared", final_result="success", http_status=200)]
+    _write_results(primary, records)
+    _write_results(fallback, records)
+    old_output = b"existing immutable output\n"
+    output.write_bytes(old_output)
+    primary_before = primary.read_bytes()
+    fallback_before = fallback.read_bytes()
+
+    def fail_write(value: object, handle: object, **kwargs: object) -> None:
+        handle.write("partial")
+        raise OSError("simulated write failure")
+
+    monkeypatch.setattr(comparator.json, "dump", fail_write)
+
+    with pytest.raises(OSError, match="simulated write failure"):
+        main(
+            [
+                "--primary-results",
+                str(primary),
+                "--fallback-results",
+                str(fallback),
+                "--output",
+                str(output),
+            ]
+        )
+
+    assert primary.read_bytes() == primary_before
+    assert fallback.read_bytes() == fallback_before
+    assert output.read_bytes() == old_output
+    assert set(tmp_path.iterdir()) == {primary, fallback, output}
