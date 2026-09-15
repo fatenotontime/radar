@@ -34,22 +34,32 @@ exit
 
 如果某个来源失败，保留整轮结果并继续测试其他来源。不要手动修改 `results.jsonl`；如需补测，使用新的输出目录。
 
-## 候选池与外部节点对照
+## S/A 18 源外部节点对照
 
 `config/source_probe_candidates.json` 是网络探测候选池，不是正式 Source Policy。候选增加、HTTP 200 或解析成功均不会启用采集；正式启用仍需单独完成许可、字段、频率和人工复核。
 
-ECS 在 2026-09-13 完整测试中出现连接或 TLS 异常的 9 个来源，固定记录在 `config/source_external_compare.json`。GitHub Actions 工作流 `.github/workflows/radar-source-external-compare.yml` 每周二 03:17 UTC 自动从 GitHub 托管的 Ubuntu 节点运行，也可在仓库 Actions 页面手动运行。每次输出使用 GitHub run ID 和 attempt 组成独立目录，并保留完整探测 bundle 14 天。
+S/A 比较只使用两个都基于 `config/source_sa_external_compare.json` 的 18 源 bundle：
 
-外部节点结果只能区分“ECS 路径特有问题”和“来源普遍异常”，不能替代来源许可审查。对照目录必须保持恰好 9 项，并与主候选池中的同 ID 记录完全一致；自动测试会校验这个约束。
+- **primary** 固定为上述 Linux 流程在 ECS 生成的 `codex-sa-{UTC timestamp}/results.jsonl`。
+- **fallback** 固定为 [S/A source assurance workflow](../../../.github/workflows/radar-sa-source-assurance.yml) 产生的 `radar-sa-source-evidence-{run id}-{run attempt}` artifact 中的 `probe/results.jsonl`。
+
+下载并解压 artifact 后，一组准确的 Windows 路径形状示例是：
+
+- primary：`D:\radar-evidence\ecs\codex-sa-20260915T012345Z\results.jsonl`
+- fallback：`D:\radar-evidence\github\radar-sa-source-evidence-123456789-1\probe\results.jsonl`
 
 ## Windows PowerShell 结果比较
 
-先将两个已完成的探测 bundle 下载或复制到 Windows 本机。在 `radar` 仓库根目录打开 PowerShell，逐行执行：
+先将上述两个 18 源 bundle 下载或复制到 Windows 本机。比较前必须确认两份 `results.jsonl` 的 `source_id` 集合完全一致；否则比较器会以 `source_id sets differ` 拒绝运行。
+
+参数方向也是证据语义的一部分：ECS 18 源结果必须传给 `--primary-results`，S/A workflow artifact 中的结果必须传给 `--fallback-results`。如果反向传参，`primary_reachable` 和 `fallback_reachable` 的方向会被颠倒，从而造成错误解读。
+
+在 `radar` 仓库根目录打开 PowerShell，将示例中的时间戳、run ID 和 run attempt 替换为实际值，再逐行执行：
 
 ```powershell
-$PrimaryResults = Read-Host 'Primary results.jsonl path'
-$FallbackResults = Read-Host 'Fallback results.jsonl path'
-$ComparisonOutput = Read-Host 'New comparison JSON output path'
+$PrimaryResults = 'D:\radar-evidence\ecs\codex-sa-20260915T012345Z\results.jsonl'
+$FallbackResults = 'D:\radar-evidence\github\radar-sa-source-evidence-123456789-1\probe\results.jsonl'
+$ComparisonOutput = 'D:\radar-evidence\comparison\sa-source-comparison-20260915T012345Z.json'
 python .\GlobalNews\scripts\compare_source_probe_runs.py --primary-results $PrimaryResults --fallback-results $FallbackResults --output $ComparisonOutput
 python -m json.tool $ComparisonOutput
 Resolve-Path $ComparisonOutput
@@ -64,3 +74,9 @@ Resolve-Path $ComparisonOutput
 - `both_failed`：两端都未成功，且没有命中上述访问复核 HTTP 状态。
 
 `fallback_reachable` 仅是网络证据，不是采集授权。五种分类都不代替许可、允许字段、频率限制和人工复核。该比较器要求两份 `results.jsonl` 的 `source_id` 集合完全一致，且输出路径必须是不存在的新文件。
+
+## 历史 9 源诊断
+
+ECS 在 2026-09-13 完整测试中出现连接或 TLS 异常的 9 个来源，固定记录在 `config/source_external_compare.json`。GitHub Actions [历史 9 源 workflow](../../../.github/workflows/radar-source-external-compare.yml) 是为这个来源集合设置的独立诊断流程。
+
+该 workflow 的 9 源 bundle **不可**与本文上述 ECS 18 源 bundle 比较；两者的 `source_id` 集合不同，比较器会正确拒绝。历史 9 源结果只能与同样基于 `config/source_external_compare.json` 的 9 源结果对照，不能用于 S/A 18 源保障判定。
