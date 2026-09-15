@@ -29,8 +29,6 @@ jobs:
   probe-s-and-a-sources:
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    env:
-      EVIDENCE_ROOT: ${{ runner.temp }}/radar-sa-source-evidence-${{ github.run_id }}-${{ github.run_attempt }}
     defaults:
       run:
         working-directory: GlobalNews
@@ -46,6 +44,7 @@ jobs:
 
       - name: Prepare workflow evidence metadata
         if: github.event_name != 'pull_request'
+        id: prepare
         shell: bash
         env:
           RUN_ID: ${{ github.run_id }}
@@ -53,6 +52,10 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           SHA: ${{ github.sha }}
         run: |
+          evidence_root="${RUNNER_TEMP}/radar-sa-source-evidence-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          export EVIDENCE_ROOT="${evidence_root}"
+          echo "EVIDENCE_ROOT=${evidence_root}" >> "${GITHUB_ENV}"
+          echo "evidence_root=${evidence_root}" >> "${GITHUB_OUTPUT}"
           mkdir -p "${EVIDENCE_ROOT}"
           python - <<'PY'
           import json
@@ -136,6 +139,6 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: radar-sa-source-evidence-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ env.EVIDENCE_ROOT }}
+          path: ${{ steps.prepare.outputs.evidence_root }}
           if-no-files-found: error
           retention-days: 30

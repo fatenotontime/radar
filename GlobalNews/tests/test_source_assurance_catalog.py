@@ -131,11 +131,8 @@ def test_source_assurance_workflow_preserves_honest_evidence_on_failure():
     steps = _workflow_steps(workflow)
     steps_by_name = {step["name"]: step for step in steps}
 
-    evidence_root = (
-        "${{ runner.temp }}/radar-sa-source-evidence-"
-        "${{ github.run_id }}-${{ github.run_attempt }}"
-    )
-    assert job["env"] == {"EVIDENCE_ROOT": evidence_root}
+    assert "runner.temp" not in json.dumps(job.get("env", {}))
+    assert not job.get("env")
 
     prepare = steps_by_name["Prepare workflow evidence metadata"]
     catalog_test = steps_by_name["Validate catalog contracts"]
@@ -144,7 +141,16 @@ def test_source_assurance_workflow_preserves_honest_evidence_on_failure():
     upload = steps_by_name["Upload source assurance evidence"]
 
     assert steps.index(prepare) < steps.index(catalog_test) < steps.index(probe)
+    assert prepare["id"] == "prepare"
+    assert (
+        'evidence_root="${RUNNER_TEMP}/radar-sa-source-evidence-'
+        '${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"'
+    ) in prepare["run"]
     assert 'mkdir -p "${EVIDENCE_ROOT}"' in prepare["run"]
+    assert 'EVIDENCE_ROOT=${evidence_root}' in prepare["run"]
+    assert 'evidence_root=${evidence_root}' in prepare["run"]
+    assert "GITHUB_ENV" in prepare["run"]
+    assert "GITHUB_OUTPUT" in prepare["run"]
     assert "workflow_metadata.json" in prepare["run"]
     for fact in ("run_id", "run_attempt", "event_name", "commit", "catalog"):
         assert f'"{fact}"' in prepare["run"]
@@ -170,7 +176,7 @@ def test_source_assurance_workflow_preserves_honest_evidence_on_failure():
 
     assert upload["if"] == gated_always
     assert upload["uses"] == "actions/upload-artifact@v7"
-    assert upload["with"]["path"] == "${{ env.EVIDENCE_ROOT }}"
+    assert upload["with"]["path"] == "${{ steps.prepare.outputs.evidence_root }}"
     assert upload["with"]["if-no-files-found"] == "error"
     assert upload["with"]["retention-days"] == "30"
     assert "evidence" in upload["with"]["name"]
