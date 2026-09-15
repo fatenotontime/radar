@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+import yaml
+
 
 CONFIG_DIR = Path(__file__).resolve().parent.parent / "config"
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -33,17 +35,29 @@ def _load(name: str) -> dict[str, object]:
     return json.loads((CONFIG_DIR / name).read_text(encoding="utf-8"))
 
 
+def _load_workflow() -> dict[str, object]:
+    workflow = yaml.load(
+        WORKFLOW_PATH.read_text(encoding="utf-8"), Loader=yaml.BaseLoader
+    )
+    assert isinstance(workflow, dict)
+    return workflow
+
+
+def _workflow_steps(workflow: dict[str, object]) -> list[dict[str, object]]:
+    return workflow["jobs"]["probe-s-and-a-sources"]["steps"]
+
+
 def test_source_assurance_workflow_exists():
     assert WORKFLOW_PATH.is_file()
 
 
 def test_source_assurance_workflow_has_safe_scoped_triggers():
-    workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
+    workflow = _load_workflow()
+    triggers = workflow["on"]
 
-    assert "workflow_dispatch:" in workflow
-    assert 'cron: "17 3 * * 2"' in workflow
-    assert "pull_request:" in workflow
-    for path in (
+    assert triggers["workflow_dispatch"] == ""
+    assert triggers["schedule"] == [{"cron": "17 3 * * 2"}]
+    assert set(triggers["pull_request"]["paths"]) == {
         ".github/workflows/radar-sa-source-assurance.yml",
         "GlobalNews/config/source_assurance_priorities.json",
         "GlobalNews/config/source_sa_external_compare.json",
@@ -53,47 +67,88 @@ def test_source_assurance_workflow_has_safe_scoped_triggers():
         "GlobalNews/tests/test_source_assurance_catalog.py",
         "GlobalNews/tests/test_source_probe_catalogs.py",
         "GlobalNews/tests/test_probe_sources.py",
-    ):
-        assert f'      - "{path}"' in workflow
-    assert "permissions:\n  contents: read" in workflow
-    assert "concurrency:" in workflow
-    assert "cancel-in-progress: false" in workflow
+    }
+    assert workflow["permissions"] == {"contents": "read"}
+    assert workflow["concurrency"] == {
+        "group": "radar-sa-source-assurance",
+        "cancel-in-progress": "false",
+    }
 
 
 def test_source_assurance_workflow_validates_catalogs_before_probing():
-    workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
+    workflow = _load_workflow()
+    job = workflow["jobs"]["probe-s-and-a-sources"]
+    steps = _workflow_steps(workflow)
+    steps_by_name = {step["name"]: step for step in steps}
 
-    assert "uses: actions/checkout@v7" in workflow
-    assert "uses: actions/setup-python@v7" in workflow
-    assert 'python-version: "3.13"' in workflow
-    assert 'python -m pip install "pytest>=7.4,<9"' in workflow
-
-    catalog_test = (
-        "python -m pytest tests/test_source_assurance_catalog.py "
-        "tests/test_source_probe_catalogs.py -q"
+    assert job["runs-on"] == "ubuntu-latest"
+    assert job["defaults"]["run"]["working-directory"] == "GlobalNews"
+    assert steps_by_name["Check out source assurance definitions"]["uses"] == (
+        "actions/checkout@v7"
     )
-    probe_command = "python scripts/run_source_probe.py"
-    assert catalog_test in workflow
-    assert workflow.index(catalog_test) < workflow.index(probe_command)
+    assert steps_by_name["Set up Python"] == {
+        "name": "Set up Python",
+        "uses": "actions/setup-python@v7",
+        "with": {"python-version": "3.13"},
+    }
+    assert steps_by_name["Install test dependencies"]["run"] == (
+        'python -m pip install "pytest>=7.4,<9" "PyYAML>=6,<7"'
+    )
+
+    catalog_test_command = (
+        "python -m pytest tests/test_source_assurance_catalog.py "
+        "tests/test_source_probe_catalogs.py tests/test_probe_sources.py -q"
+    )
+    catalog_step = steps_by_name["Validate catalog contracts"]
+    probe_step = steps_by_name["Probe S and A sources"]
+    assert catalog_step["run"] == catalog_test_command
+    assert steps.index(catalog_step) < steps.index(probe_step)
 
 
-def test_source_assurance_workflow_preserves_complete_probe_bundle():
-    workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
+def test_source_assurance_workflow_preserves_honest_evidence_on_failure():
+    workflow = _load_workflow()
+    job = workflow["jobs"]["probe-s-and-a-sources"]
+    steps = _workflow_steps(workflow)
+    steps_by_name = {step["name"]: step for step in steps}
 
-    assert "--catalog config/source_sa_external_compare.json" in workflow
-    assert '--output-dir "${PROBE_OUTPUT_DIR}"' in workflow
-    assert "--attempts 2" in workflow
-    assert "--timeout 20" in workflow
-    assert "--delay 1" in workflow
-    assert (
-        "PROBE_OUTPUT_DIR: ${{ runner.temp }}/radar-sa-source-assurance-"
+    evidence_root = (
+        "${{ runner.temp }}/radar-sa-source-evidence-"
         "${{ github.run_id }}-${{ github.run_attempt }}"
-    ) in workflow
-    assert "if: always()" in workflow
-    assert "uses: actions/upload-artifact@v7" in workflow
-    assert "path: ${{ env.PROBE_OUTPUT_DIR }}" in workflow
-    assert "if-no-files-found: error" in workflow
-    assert "retention-days: 30" in workflow
+    )
+    assert job["env"] == {"EVIDENCE_ROOT": evidence_root}
+
+    prepare = steps_by_name["Prepare workflow evidence metadata"]
+    catalog_test = steps_by_name["Validate catalog contracts"]
+    probe = steps_by_name["Probe S and A sources"]
+    finalize = steps_by_name["Finalize workflow evidence"]
+    upload = steps_by_name["Upload source assurance evidence"]
+
+    assert steps.index(prepare) < steps.index(catalog_test) < steps.index(probe)
+    assert 'mkdir -p "${EVIDENCE_ROOT}"' in prepare["run"]
+    assert "workflow_metadata.json" in prepare["run"]
+
+    assert probe["id"] == "probe"
+    assert "python scripts/run_source_probe.py" in probe["run"]
+    assert "--catalog config/source_sa_external_compare.json" in probe["run"]
+    assert '--output-dir "${EVIDENCE_ROOT}/probe"' in probe["run"]
+    assert "--attempts 2" in probe["run"]
+    assert "--timeout 20" in probe["run"]
+    assert "--delay 1" in probe["run"]
+
+    assert finalize["if"] == "always()"
+    assert finalize["env"] == {"PROBE_OUTCOME": "${{ steps.probe.outcome }}"}
+    assert "workflow_result.json" in finalize["run"]
+    assert '"probe_outcome"' in finalize["run"]
+    assert '"probe_complete"' in finalize["run"]
+    assert steps.index(probe) < steps.index(finalize) < steps.index(upload)
+
+    assert upload["if"] == "always()"
+    assert upload["uses"] == "actions/upload-artifact@v7"
+    assert upload["with"]["path"] == "${{ env.EVIDENCE_ROOT }}"
+    assert upload["with"]["if-no-files-found"] == "error"
+    assert upload["with"]["retention-days"] == "30"
+    assert "evidence" in upload["with"]["name"]
+    assert "complete" not in upload["with"]["name"].lower()
 
 
 def test_source_assurance_manifest_declares_version_and_default_priority():
