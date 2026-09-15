@@ -10,8 +10,10 @@ on:
       - "GlobalNews/config/source_assurance_priorities.json"
       - "GlobalNews/config/source_sa_external_compare.json"
       - "GlobalNews/config/source_probe_candidates.json"
+      - "GlobalNews/scripts/compare_source_probe_runs.py"
       - "GlobalNews/scripts/probe_sources.py"
       - "GlobalNews/scripts/run_source_probe.py"
+      - "GlobalNews/tests/test_compare_source_probe_runs.py"
       - "GlobalNews/tests/test_source_assurance_catalog.py"
       - "GlobalNews/tests/test_source_probe_catalogs.py"
       - "GlobalNews/tests/test_probe_sources.py"
@@ -26,7 +28,7 @@ concurrency:
 jobs:
   probe-s-and-a-sources:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     env:
       EVIDENCE_ROOT: ${{ runner.temp }}/radar-sa-source-evidence-${{ github.run_id }}-${{ github.run_attempt }}
     defaults:
@@ -43,6 +45,7 @@ jobs:
           python-version: "3.13"
 
       - name: Prepare workflow evidence metadata
+        if: github.event_name != 'pull_request'
         shell: bash
         env:
           RUN_ID: ${{ github.run_id }}
@@ -62,8 +65,8 @@ jobs:
               "run_id": os.environ["RUN_ID"],
               "run_attempt": os.environ["RUN_ATTEMPT"],
               "event_name": os.environ["EVENT_NAME"],
-              "sha": os.environ["SHA"],
-              "probe_outcome": "not_started",
+              "commit": os.environ["SHA"],
+              "catalog": "config/source_sa_external_compare.json",
           }
           destination = Path(os.environ["EVIDENCE_ROOT"]) / "workflow_metadata.json"
           destination.write_text(
@@ -76,9 +79,10 @@ jobs:
         run: python -m pip install "pytest>=7.4,<9" "PyYAML>=6,<7"
 
       - name: Validate catalog contracts
-        run: python -m pytest tests/test_source_assurance_catalog.py tests/test_source_probe_catalogs.py tests/test_probe_sources.py -q
+        run: python -m pytest tests/test_source_assurance_catalog.py tests/test_source_probe_catalogs.py tests/test_probe_sources.py tests/test_compare_source_probe_runs.py -q
 
       - name: Probe S and A sources
+        if: github.event_name != 'pull_request'
         id: probe
         shell: bash
         run: |
@@ -91,7 +95,7 @@ jobs:
           cat "${EVIDENCE_ROOT}/probe/summary.md" >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Finalize workflow evidence
-        if: always()
+        if: always() && github.event_name != 'pull_request'
         shell: bash
         env:
           PROBE_OUTCOME: ${{ steps.probe.outcome }}
@@ -128,7 +132,7 @@ jobs:
           PY
 
       - name: Upload source assurance evidence
-        if: always()
+        if: always() && github.event_name != 'pull_request'
         uses: actions/upload-artifact@v7
         with:
           name: radar-sa-source-evidence-${{ github.run_id }}-${{ github.run_attempt }}

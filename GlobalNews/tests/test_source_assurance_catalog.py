@@ -62,8 +62,10 @@ def test_source_assurance_workflow_has_safe_scoped_triggers():
         "GlobalNews/config/source_assurance_priorities.json",
         "GlobalNews/config/source_sa_external_compare.json",
         "GlobalNews/config/source_probe_candidates.json",
+        "GlobalNews/scripts/compare_source_probe_runs.py",
         "GlobalNews/scripts/probe_sources.py",
         "GlobalNews/scripts/run_source_probe.py",
+        "GlobalNews/tests/test_compare_source_probe_runs.py",
         "GlobalNews/tests/test_source_assurance_catalog.py",
         "GlobalNews/tests/test_source_probe_catalogs.py",
         "GlobalNews/tests/test_probe_sources.py",
@@ -82,6 +84,7 @@ def test_source_assurance_workflow_validates_catalogs_before_probing():
     steps_by_name = {step["name"]: step for step in steps}
 
     assert job["runs-on"] == "ubuntu-latest"
+    assert int(job["timeout-minutes"]) >= 45
     assert job["defaults"]["run"]["working-directory"] == "GlobalNews"
     assert steps_by_name["Check out source assurance definitions"]["uses"] == (
         "actions/checkout@v7"
@@ -97,12 +100,29 @@ def test_source_assurance_workflow_validates_catalogs_before_probing():
 
     catalog_test_command = (
         "python -m pytest tests/test_source_assurance_catalog.py "
-        "tests/test_source_probe_catalogs.py tests/test_probe_sources.py -q"
+        "tests/test_source_probe_catalogs.py tests/test_probe_sources.py "
+        "tests/test_compare_source_probe_runs.py -q"
     )
     catalog_step = steps_by_name["Validate catalog contracts"]
     probe_step = steps_by_name["Probe S and A sources"]
     assert catalog_step["run"] == catalog_test_command
     assert steps.index(catalog_step) < steps.index(probe_step)
+
+
+def test_source_assurance_pull_requests_never_run_probe_or_evidence_steps():
+    workflow = _load_workflow()
+    steps = _workflow_steps(workflow)
+    steps_by_name = {step["name"]: step for step in steps}
+
+    event_gate = "github.event_name != 'pull_request'"
+    assert steps_by_name["Prepare workflow evidence metadata"]["if"] == event_gate
+    assert steps_by_name["Probe S and A sources"]["if"] == event_gate
+    assert steps_by_name["Finalize workflow evidence"]["if"] == (
+        f"always() && {event_gate}"
+    )
+    assert steps_by_name["Upload source assurance evidence"]["if"] == (
+        f"always() && {event_gate}"
+    )
 
 
 def test_source_assurance_workflow_preserves_honest_evidence_on_failure():
@@ -126,6 +146,11 @@ def test_source_assurance_workflow_preserves_honest_evidence_on_failure():
     assert steps.index(prepare) < steps.index(catalog_test) < steps.index(probe)
     assert 'mkdir -p "${EVIDENCE_ROOT}"' in prepare["run"]
     assert "workflow_metadata.json" in prepare["run"]
+    for fact in ("run_id", "run_attempt", "event_name", "commit", "catalog"):
+        assert f'"{fact}"' in prepare["run"]
+    assert '"config/source_sa_external_compare.json"' in prepare["run"]
+    assert '"probe_outcome"' not in prepare["run"]
+    assert '"probe_complete"' not in prepare["run"]
 
     assert probe["id"] == "probe"
     assert "python scripts/run_source_probe.py" in probe["run"]
@@ -135,14 +160,15 @@ def test_source_assurance_workflow_preserves_honest_evidence_on_failure():
     assert "--timeout 20" in probe["run"]
     assert "--delay 1" in probe["run"]
 
-    assert finalize["if"] == "always()"
+    gated_always = "always() && github.event_name != 'pull_request'"
+    assert finalize["if"] == gated_always
     assert finalize["env"] == {"PROBE_OUTCOME": "${{ steps.probe.outcome }}"}
     assert "workflow_result.json" in finalize["run"]
     assert '"probe_outcome"' in finalize["run"]
     assert '"probe_complete"' in finalize["run"]
     assert steps.index(probe) < steps.index(finalize) < steps.index(upload)
 
-    assert upload["if"] == "always()"
+    assert upload["if"] == gated_always
     assert upload["uses"] == "actions/upload-artifact@v7"
     assert upload["with"]["path"] == "${{ env.EVIDENCE_ROOT }}"
     assert upload["with"]["if-no-files-found"] == "error"
