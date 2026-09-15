@@ -1,0 +1,110 @@
+[
+  {
+    "source_id": "arxiv_api",
+    "name": "arXiv API",
+    "url": "https://export.arxiv.org/api/query?search_query=cat:physics.chem-ph&start=0&max_results=1",
+    "role": "research_discovery"
+  },
+  {
+    "source_id": "chemrxiv",
+    "name": "ChemRxiv",
+    "url": "https://chemrxiv.org/engage/chemrxiv/public-dashboard",
+    "role": "chemistry_preprint_discovery"
+  },
+  {
+    "source_id": "openai",
+    "name": "OpenAI",
+    "url": "https://openai.com/news/",
+    "role": "ai_company_primary"
+  },
+  {
+    "source_id": "anthropic",
+    "name": "Anthropic",
+    "url": "https://www.anthropic.com/news",
+    "role": "ai_company_primary"
+  },
+  {
+    "source_id": "meta_ai",
+    "name": "Meta AI",
+    "url": "https://ai.meta.com/blog/",
+    "role": "ai_company_primary"
+  },
+  {
+    "source_id": "nvidia",
+    "name": "NVIDIA",
+    "url": "https://blogs.nvidia.com/feed/",
+    "role": "ai_company_primary"
+  },
+  {
+    "source_id": "materials_cloud",
+    "name": "Materials Cloud",
+    "url": "https://www.materialscloud.org/discover/menu",
+    "role": "materials_database"
+  },
+  {
+    "source_id": "materials_project",
+    "name": "Materials Project",
+    "url": "https://next-gen.materialsproject.org/",
+    "role": "materials_database"
+  },
+  {
+    "source_id": "acs_jctc",
+    "name": "ACS Journal of Chemical Theory and Computation",
+    "url": "https://pubs.acs.org/action/showFeed?type=etoc&feed=rss&jc=jctcce",
+    "role": "chemistry_publisher_discovery"
+  },
+  {
+    "source_id": "acs_chem_mater",
+    "name": "ACS Chemistry of Materials",
+    "url": "https://pubs.acs.org/action/showFeed?type=etoc&feed=rss&jc=cmatex",
+    "role": "chemistry_publisher_discovery"
+  },
+  {
+    "source_id": "acs_catalysis",
+    "name": "ACS Catalysis",
+    "url": "https://pubs.acs.org/action/showFeed?type=etoc&feed=rss&jc=accacs",
+    "role": "chemistry_publisher_discovery"
+  },
+  {
+    "source_id": "rsc_pccp",
+    "name": "RSC Physical Chemistry Chemical Physics",
+    "url": "https://pubs.rsc.org/en/journals/journalissues/cp",
+    "role": "chemistry_publisher_discovery"
+  },
+  {
+    "source_id": "aip_jcp",
+    "name": "Journal of Chemical Physics",
+    "url": "https://pubs.aip.org/jcp/rss/site_1000004/1000004.xml",
+    "role": "chemistry_publisher_discovery"
+  },
+  {
+    "source_id": "ase",
+    "name": "Atomic Simulation Environment Releases",
+    "url": "https://gitlab.com/api/v4/projects/ase%2Fase/releases?per_page=1",
+    "role": "research_software_release"
+  },
+  {
+    "source_id": "gpaw",
+    "name": "GPAW Releases",
+    "url": "https://gitlab.com/api/v4/projects/gpaw%2Fgpaw/releases?per_page=1",
+    "role": "research_software_release"
+  },
+  {
+    "source_id": "mistral_ai",
+    "name": "Mistral AI News",
+    "url": "https://mistral.ai/news",
+    "role": "ai_company_primary"
+  },
+  {
+    "source_id": "huggingface",
+    "name": "Hugging Face Blog",
+    "url": "https://huggingface.co/blog/feed.xml",
+    "role": "ai_ecosystem_primary"
+  },
+  {
+    "source_id": "allenai",
+    "name": "Allen Institute for AI",
+    "url": "https://allenai.org/news",
+    "role": "ai_research_primary"
+  }
+]

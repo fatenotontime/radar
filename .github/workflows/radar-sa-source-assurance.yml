@@ -1,0 +1,137 @@
+name: Radar S and A source assurance
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * 2"
+  pull_request:
+    paths:
+      - ".github/workflows/radar-sa-source-assurance.yml"
+      - "GlobalNews/config/source_assurance_priorities.json"
+      - "GlobalNews/config/source_sa_external_compare.json"
+      - "GlobalNews/config/source_probe_candidates.json"
+      - "GlobalNews/scripts/compare_source_probe_runs.py"
+      - "GlobalNews/scripts/probe_sources.py"
+      - "GlobalNews/scripts/run_source_probe.py"
+      - "GlobalNews/tests/test_compare_source_probe_runs.py"
+      - "GlobalNews/tests/test_source_assurance_catalog.py"
+      - "GlobalNews/tests/test_source_probe_catalogs.py"
+      - "GlobalNews/tests/test_probe_sources.py"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: radar-sa-source-assurance
+  cancel-in-progress: false
+
+jobs:
+  probe-s-and-a-sources:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: GlobalNews
+
+    steps:
+      - name: Prepare workflow evidence metadata
+        if: github.event_name != 'pull_request'
+        id: prepare
+        shell: bash
+        working-directory: ${{ runner.temp }}
+        env:
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          EVENT_NAME: ${{ github.event_name }}
+          SHA: ${{ github.sha }}
+        run: |
+          evidence_root="${RUNNER_TEMP}/radar-sa-source-evidence-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          export EVIDENCE_ROOT="${evidence_root}"
+          echo "EVIDENCE_ROOT=${evidence_root}" >> "${GITHUB_ENV}"
+          echo "evidence_root=${evidence_root}" >> "${GITHUB_OUTPUT}"
+          mkdir -p "${EVIDENCE_ROOT}"
+          {
+            printf '%s\n' '{'
+            printf '%s\n' '  "schema_version": 1,'
+            printf '%s\n' '  "workflow": "radar-sa-source-assurance",'
+            printf '  "run_id": "%s",\n' "${RUN_ID}"
+            printf '  "run_attempt": "%s",\n' "${RUN_ATTEMPT}"
+            printf '  "event_name": "%s",\n' "${EVENT_NAME}"
+            printf '  "commit": "%s",\n' "${SHA}"
+            printf '%s\n' '  "catalog": "config/source_sa_external_compare.json"'
+            printf '%s\n' '}'
+          } > "${EVIDENCE_ROOT}/workflow_metadata.json"
+
+      - name: Check out source assurance definitions
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Install test dependencies
+        run: python -m pip install "pytest>=7.4,<9" "PyYAML>=6,<7"
+
+      - name: Validate catalog contracts
+        run: python -m pytest tests/test_source_assurance_catalog.py tests/test_source_probe_catalogs.py tests/test_probe_sources.py tests/test_compare_source_probe_runs.py -q
+
+      - name: Probe S and A sources
+        if: github.event_name != 'pull_request'
+        id: probe
+        shell: bash
+        run: |
+          python scripts/run_source_probe.py \
+            --catalog config/source_sa_external_compare.json \
+            --output-dir "${EVIDENCE_ROOT}/probe" \
+            --attempts 2 \
+            --timeout 20 \
+            --delay 1
+          cat "${EVIDENCE_ROOT}/probe/summary.md" >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Finalize workflow evidence
+        if: always() && github.event_name != 'pull_request'
+        shell: bash
+        working-directory: ${{ runner.temp }}
+        env:
+          PROBE_OUTCOME: ${{ steps.probe.outcome }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          evidence_root = Path(os.environ["EVIDENCE_ROOT"])
+          probe_root = evidence_root / "probe"
+          expected_files = (
+              "run_metadata.json",
+              "results.jsonl",
+              "summary.json",
+              "summary.md",
+          )
+          present_files = [name for name in expected_files if (probe_root / name).is_file()]
+          probe_outcome = os.environ.get("PROBE_OUTCOME") or "unavailable"
+          result = {
+              "schema_version": 1,
+              "probe_outcome": probe_outcome,
+              "probe_complete": (
+                  probe_outcome == "success" and len(present_files) == len(expected_files)
+              ),
+              "expected_probe_files": list(expected_files),
+              "present_probe_files": present_files,
+          }
+          evidence_root.mkdir(parents=True, exist_ok=True)
+          (evidence_root / "workflow_result.json").write_text(
+              json.dumps(result, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Upload source assurance evidence
+        if: always() && github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v7
+        with:
+          name: radar-sa-source-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ steps.prepare.outputs.evidence_root }}
+          if-no-files-found: error
+          retention-days: 30
