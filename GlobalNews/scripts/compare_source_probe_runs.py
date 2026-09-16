@@ -107,7 +107,10 @@ def _write_json_exclusive_atomic(path: Path, value: Any) -> None:
             handle.write("\n")
             handle.flush()
             os.fsync(handle.fileno())
-        os.link(temporary_path, path)
+        if sys.platform == "win32":
+            os.rename(temporary_path, path)
+        else:
+            os.link(temporary_path, path)
     finally:
         if temporary_path is not None:
             try:

@@ -1,0 +1,298 @@
+{
+  "classification_counts": {
+    "both_failed": 1,
+    "fallback_reachable": 9,
+    "policy_or_access_review": 8
+  },
+  "interpretation_boundary": "Network evidence only; this does not authorize collection.",
+  "sources": [
+    {
+      "classification": "policy_or_access_review",
+      "fallback": {
+        "error_class": "http_error",
+        "final_result": "failure",
+        "http_status": 403,
+        "parser_error": null
+      },
+      "primary": {
+        "error_class": "TimeoutError",
+        "final_result": "failure",
+        "http_status": null,
+        "parser_error": null
+      },
+      "source_id": "acs_catalysis"
+    },
+    {
+      "classification": "policy_or_access_review",
+      "fallback": {
+        "error_class": "http_error",
+        "final_result": "failure",
+        "http_status": 403,
+        "parser_error": null
+      },
+      "primary": {
+        "error_class": "URLError",
+        "final_result": "failure",
+        "http_status": null,
+        "parser_error": null
+      },
+      "source_id": "acs_chem_mater"
+    },
+    {
+      "classification": "policy_or_access_review",
+      "fallback": {
+        "error_class": "http_error",
+        "final_result": "failure",
+        "http_status": 403,
+        "parser_error": null
+      },
+      "primary": {
+        "error_class": "TimeoutError",
+        "final_result": "failure",
+        "http_status": null,
+        "parser_error": null
+      },
+      "source_id": "acs_jctc"
+    },
+    {
+      "classification": "both_failed",
+      "fallback": {
+        "error_class": "http_error",
+        "final_result": "failure",
+        "http_status": 404,
+        "parser_error": null
+      },
+      "primary": {
+        "error_class": "URLError",
+        "final_result": "failure",
+        "http_status": null,
+        "parser_error": null
+      },
+      "source_id": "aip_jcp"
+    },
+    {
+      "classification": "fallback_reachable",
+      "fallback": {
+        "error_class": null,
+        "final_result": "success",
+        "http_status": 200,
+        "parser_error": null
+      },
+      "primary": {
+        "error_class": "http_error",
+        "final_result": "failure",
+        "http_status": 403,
+        "parser_error": null
+      },
+      "source_id": "allenai"
+    },
+    {
+      "classification": "fallback_reachable",
+      "fallback": {
+        "error_class": null,
+        "final_result": "success",
+        "http_status": 200,
+        "parser_error": null
+      },
+      "primary": {
+        "error_class": "TimeoutError",
+        "final_result": "failure",
+        "http_status": null,
+        "parser_error": null
+      },
+      "source_id": "anthropic"
+    },
+    {
+      "classification": "policy_or_access_review",
+      "fallback": {
+        "error_class": "http_error",
+        "final_result": "failure",
+        "http_status": 429,
+        "parser_error": null
+      },
+      "primary": {
+        "error_class": "ConnectionResetError",
+        "final_result": "failure",
+        "http_status": null,
+        "parser_error": null
+      },
+      "source_id": "arxiv_api"
+    },
+    {
+      "classification": "fallback_reachable",
+      "fallback": {
+        "error_class": null,
+        "final_result": "success",
+        "http_status": 200,
+        "parser_error": null
+      },
+      "primary": {
+        "error_class": "TimeoutError",
+        "final_result": "failure",
+        "http_status": null,
+        "parser_error": null
+      },
+      "source_id": "ase"
+    },
+    {
+      "classification": "policy_or_access_review",
+      "fallback": {
+        "error_class": "http_error",
+        "final_result": "failure",
+        "http_status": 403,
+        "parser_error": null
+      },
+      "primary": {
+        "error_class": "http_error",
+        "final_result": "failure",
+        "http_status": 403,
+        "parser_error": null
+      },
+      "source_id": "chemrxiv"
+    },
+    {
+      "classification": "fallback_reachable",
+      "fallback": {
+        "error_class": null,
+        "final_result": "success",
+        "http_status": 200,
+        "parser_error": null
+      },
+      "primary": {
+        "error_class": "TimeoutError",
+        "final_result": "failure",
+        "http_status": null,
+        "parser_error": null
+      },
+      "source_id": "gpaw"
+    },
+    {
+      "classification": "fallback_reachable",
+      "fallback": {
+        "error_class": null,
+        "final_result": "success",
+        "http_status": 200,
+        "parser_error": null
+      },
+      "primary": {
+        "error_class": "OSError",
+        "final_result": "failure",
+        "http_status": null,
+        "parser_error": null
+      },
+      "source_id": "huggingface"
+    },
+    {
+      "classification": "fallback_reachable",
+      "fallback": {
+        "error_class": null,
+        "final_result": "success",
+        "http_status": 200,
+        "parser_error": null
+      },
+      "primary": {
+        "error_class": "TimeoutError",
+        "final_result": "failure",
+        "http_status": null,
+        "parser_error": null
+      },
+      "source_id": "materials_cloud"
+    },
+    {
+      "classification": "policy_or_access_review",
+      "fallback": {
+        "error_class": "http_error",
+        "final_result": "failure",
+        "http_status": 403,
+        "parser_error": null
+      },
+      "primary": {
+        "error_class": "http_error",
+        "final_result": "failure",
+        "http_status": 403,
+        "parser_error": null
+      },
+      "source_id": "materials_project"
+    },
+    {
+      "classification": "fallback_reachable",
+      "fallback": {
+        "error_class": null,
+        "final_result": "success",
+        "http_status": 200,
+        "parser_error": null
+      },
+      "primary": {
+        "error_class": "ConnectionResetError",
+        "final_result": "failure",
+        "http_status": null,
+        "parser_error": null
+      },
+      "source_id": "meta_ai"
+    },
+    {
+      "classification": "fallback_reachable",
+      "fallback": {
+        "error_class": null,
+        "final_result": "success",
+        "http_status": 200,
+        "parser_error": null
+      },
+      "primary": {
+        "error_class": "OSError",
+        "final_result": "failure",
+        "http_status": null,
+        "parser_error": null
+      },
+      "source_id": "mistral_ai"
+    },
+    {
+      "classification": "fallback_reachable",
+      "fallback": {
+        "error_class": null,
+        "final_result": "success",
+        "http_status": 200,
+        "parser_error": null
+      },
+      "primary": {
+        "error_class": "ConnectionResetError",
+        "final_result": "failure",
+        "http_status": null,
+        "parser_error": null
+      },
+      "source_id": "nvidia"
+    },
+    {
+      "classification": "policy_or_access_review",
+      "fallback": {
+        "error_class": "http_error",
+        "final_result": "failure",
+        "http_status": 403,
+        "parser_error": null
+      },
+      "primary": {
+        "error_class": "http_error",
+        "final_result": "failure",
+        "http_status": 403,
+        "parser_error": null
+      },
+      "source_id": "openai"
+    },
+    {
+      "classification": "policy_or_access_review",
+      "fallback": {
+        "error_class": "http_error",
+        "final_result": "failure",
+        "http_status": 403,
+        "parser_error": null
+      },
+      "primary": {
+        "error_class": "TimeoutError",
+        "final_result": "failure",
+        "http_status": null,
+        "parser_error": null
+      },
+      "source_id": "rsc_pccp"
+    }
+  ]
+}

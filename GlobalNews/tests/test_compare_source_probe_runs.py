@@ -245,6 +245,41 @@ def test_cli_does_not_overwrite_an_existing_output(tmp_path: Path):
     assert set(tmp_path.iterdir()) == expected_paths
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows publication behavior")
+def test_cli_publishes_atomically_on_windows_without_hard_links(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    primary = tmp_path / "primary.jsonl"
+    fallback = tmp_path / "fallback.jsonl"
+    output = tmp_path / "comparison.json"
+    records = [_record("shared", final_result="success", http_status=200)]
+    _write_results(primary, records)
+    _write_results(fallback, records)
+
+    def fail_if_called(source: object, destination: object) -> None:
+        raise OSError("hard-link publication is unavailable")
+
+    monkeypatch.setattr(comparator.os, "link", fail_if_called)
+
+    assert (
+        main(
+            [
+                "--primary-results",
+                str(primary),
+                "--fallback-results",
+                str(fallback),
+                "--output",
+                str(output),
+            ]
+        )
+        == 0
+    )
+    assert json.loads(output.read_text(encoding="utf-8"))[
+        "classification_counts"
+    ] == {"both_reachable": 1}
+    assert set(tmp_path.iterdir()) == {primary, fallback, output}
+
+
 def test_cli_cleans_temporary_file_when_atomic_publish_fails(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
@@ -260,7 +295,8 @@ def test_cli_cleans_temporary_file_when_atomic_publish_fails(
     def fail_publish(source: object, destination: object) -> None:
         raise OSError("simulated publish failure")
 
-    monkeypatch.setattr(comparator.os, "link", fail_publish)
+    publish_operation = "rename" if sys.platform == "win32" else "link"
+    monkeypatch.setattr(comparator.os, publish_operation, fail_publish)
 
     with pytest.raises(OSError, match="simulated publish failure"):
         main(
